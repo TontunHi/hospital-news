@@ -1,13 +1,21 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ใส่ Tailwind directives ไว้ด้านบนสุด */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ส่วนนี้คือการกำหนดฟอนต์หลักของเว็บไซต์ */
+@layer base {
+  body {
+    /* กำหนดให้ Sarabun เป็นฟอนต์หลัก พร้อม Fallback หากโหลดไม่ได้ */
+    font-family: 'Sarabun', sans-serif;
+    
+    /* คัดลอกคุณสมบัติอื่นๆ จากโค้ดเดิม */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
+/* ส่วนนี้คือการกำหนดฟอนต์สำหรับแสดงโค้ด (ถ้าต้องการใช้) */
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
