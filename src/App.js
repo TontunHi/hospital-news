@@ -35,7 +35,6 @@ const LoginModal = ({ password, setPassword, handleAdminLogin, setShowAdminLogin
           ยกเลิก
         </button>
       </div>
-      <p className="text-sm text-gray-500 mt-6 text-center bg-gray-900/50 py-2 rounded-lg">รหัสผ่านทดสอบ: <span className="font-mono font-bold text-green-500">admin123</span></p>
     </div>
   </div>
 );
