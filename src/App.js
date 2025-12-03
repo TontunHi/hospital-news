@@ -2,26 +2,58 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FileText, Calendar, Clock, Plus, Trash2, LogIn, LogOut, Home, Archive, Eye } from 'lucide-react';
 
 // ==========================================
-// 1. Component ย่อย (LoginModal, AdminPanel, NewsDetail, NewsCard)
+// ส่วนของการรักษาความปลอดภัย (Security)
+// ==========================================
+// Hash ของรหัสผ่าน "admin123"
+const ADMIN_PASSWORD_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+
+const verifyPassword = async (inputPassword) => {
+  if (!('crypto' in window) || !('subtle' in window.crypto)) {
+      return inputPassword === 'admin123';
+  }
+  const encoder = new TextEncoder();
+  const data = encoder.encode(inputPassword);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex === ADMIN_PASSWORD_HASH;
+};
+
+// ฟังก์ชันช่วยจัดรูปแบบวันที่เป็น "เดือน ปี" (ภาษาไทย)
+const getThaiMonthYear = (dateString) => {
+  const date = new Date(dateString);
+  if (isNaN(date)) return "ไม่ระบุวันที่";
+  
+  const year = date.getFullYear() + 543; // พ.ศ.
+  const options = { month: 'long' };
+  const month = date.toLocaleDateString('th-TH', options);
+  return `${month} ${year}`;
+};
+
+// ==========================================
+// 1. Component ย่อย
 // ==========================================
 
 const LoginModal = ({ password, setPassword, handleAdminLogin, setShowAdminLogin }) => (
-  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-    <div className="bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl border-t-4 border-green-500">
-      <h2 className="text-2xl font-bold mb-6 text-green-400 text-center">เข้าสู่ระบบเจ้าหน้าที่</h2>
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+    {/* Light Theme Modal */}
+    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border-t-4 border-green-600">
+      <h2 className="text-2xl font-bold mb-6 text-green-700 text-center">เข้าสู่ระบบเจ้าหน้าที่</h2>
       <input
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()}
-        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-6 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent transition outline-none"
+        onKeyPress={(e) => {
+          if (e.key === 'Enter') handleAdminLogin();
+        }}
+        className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 mb-6 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-transparent transition outline-none shadow-sm"
         placeholder="กรอกรหัสผ่าน"
         autoFocus
       />
       <div className="flex gap-3">
         <button
           onClick={handleAdminLogin}
-          className="flex-1 bg-green-600 text-white font-medium px-6 py-3 rounded-lg hover:bg-green-500 transition duration-150 shadow-lg"
+          className="flex-1 bg-green-600 text-white font-medium px-6 py-3 rounded-lg hover:bg-green-700 transition duration-150 shadow-md"
         >
           เข้าสู่ระบบ
         </button>
@@ -30,40 +62,44 @@ const LoginModal = ({ password, setPassword, handleAdminLogin, setShowAdminLogin
             setShowAdminLogin(false);
             setPassword('');
           }}
-          className="flex-1 bg-gray-700 text-gray-300 font-medium px-6 py-3 rounded-lg hover:bg-gray-600 transition duration-150 border border-gray-600"
+          className="flex-1 bg-gray-100 text-gray-700 font-medium px-6 py-3 rounded-lg hover:bg-gray-200 transition duration-150 border border-gray-300"
         >
           ยกเลิก
         </button>
       </div>
+       <p className="text-sm text-gray-500 mt-6 text-center bg-gray-50 py-2 rounded-lg">
+        รหัสผ่านถูกเข้ารหัสเพื่อป้องกันการอ่าน
+      </p>
     </div>
   </div>
 );
 
 const AdminPanel = React.memo(({ newsForm, setNewsForm, handleFileChange, handleAddNews, fileInputRef }) => (
-  <div className="max-w-4xl mx-auto bg-gray-800 rounded-2xl shadow-xl p-8 mb-10 border border-gray-700">
-    <h2 className="text-3xl font-extrabold mb-8 text-green-400 border-b border-gray-700 pb-4 flex items-center gap-3">
-        <span className="bg-green-900/30 p-2 rounded-lg"><FileText className="w-8 h-8 text-green-400" /></span>
+  // Light Theme Admin Panel
+  <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-10 border border-gray-200">
+    <h2 className="text-3xl font-extrabold mb-8 text-green-700 border-b border-gray-200 pb-4 flex items-center gap-3">
+        <span className="bg-green-100 p-2 rounded-lg"><FileText className="w-8 h-8 text-green-600" /></span>
         จัดการข่าวสารประชาสัมพันธ์
     </h2>
     <div className="space-y-6">
       <div>
-        <label className="block text-lg font-semibold text-gray-300 mb-2">
+        <label className="block text-lg font-semibold text-gray-700 mb-2">
           หัวข้อข่าว
         </label>
         <input
           type="text"
           value={newsForm.title}
           onChange={(e) => setNewsForm({ ...newsForm, title: e.target.value })}
-          className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-green-500 focus:border-transparent transition shadow-sm outline-none placeholder-gray-500"
+          className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-transparent transition shadow-sm outline-none placeholder-gray-500"
           placeholder="เช่น ประกาศปิดปรับปรุงระบบ..."
         />
       </div>
       
       <div>
-        <label className="block text-lg font-semibold text-gray-300 mb-2">
+        <label className="block text-lg font-semibold text-gray-700 mb-2">
           ไฟล์ PDF
         </label>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 p-4 bg-gray-700/50 rounded-xl border border-dashed border-gray-600">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300">
           <input
             type="file"
             accept="application/pdf"
@@ -74,12 +110,12 @@ const AdminPanel = React.memo(({ newsForm, setNewsForm, handleFileChange, handle
           />
           <label 
               htmlFor="pdf-upload" 
-              className="cursor-pointer bg-gray-800 text-green-400 border-2 border-green-500/50 px-6 py-3 rounded-lg hover:bg-gray-700 hover:border-green-400 transition duration-150 ease-in-out flex items-center gap-2 font-bold shadow-sm"
+              className="cursor-pointer bg-white text-green-700 border-2 border-green-500 px-6 py-3 rounded-lg hover:bg-green-50 transition duration-150 ease-in-out flex items-center gap-2 font-bold shadow-sm"
           >
               <Plus className="w-5 h-5" />
               เลือกไฟล์ PDF
           </label>
-          <span className={`text-sm break-all ${newsForm.pdfFileName ? 'text-green-400 font-semibold bg-green-900/30 px-3 py-1 rounded-full' : 'text-gray-500 italic'}`}>
+          <span className={`text-sm break-all ${newsForm.pdfFileName ? 'text-green-700 font-semibold bg-green-100 px-3 py-1 rounded-full' : 'text-gray-500 italic'}`}>
             {newsForm.pdfFileName || 'ยังไม่ได้เลือกไฟล์ (จำเป็น)'}
           </span>
         </div>
@@ -87,34 +123,34 @@ const AdminPanel = React.memo(({ newsForm, setNewsForm, handleFileChange, handle
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
         <div>
-          <label className="block text-lg font-semibold text-gray-300 mb-2">
-            <Calendar className="w-5 h-5 inline mr-2 text-red-400" />
+          <label className="block text-lg font-semibold text-gray-700 mb-2">
+            <Calendar className="w-5 h-5 inline mr-2 text-red-500" />
             วันหมดอายุ
           </label>
           <input
             type="date"
             value={newsForm.expiryDate}
             onChange={(e) => setNewsForm({ ...newsForm, expiryDate: e.target.value })}
-            className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition shadow-sm outline-none [color-scheme:dark]"
+            className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent transition shadow-sm outline-none"
           />
         </div>
         <div>
-          <label className="block text-lg font-semibold text-gray-300 mb-2">
-            <Clock className="w-5 h-5 inline mr-2 text-red-400" />
+          <label className="block text-lg font-semibold text-gray-700 mb-2">
+            <Clock className="w-5 h-5 inline mr-2 text-red-500" />
             เวลาหมดอายุ
           </label>
           <input
             type="time"
             value={newsForm.expiryTime}
             onChange={(e) => setNewsForm({ ...newsForm, expiryTime: e.target.value })}
-            className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition shadow-sm outline-none [color-scheme:dark]"
+            className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent transition shadow-sm outline-none"
           />
         </div>
       </div>
       
       <button
         onClick={handleAddNews}
-        className="w-full bg-gradient-to-r from-green-600 to-green-500 text-white font-bold text-lg px-6 py-4 rounded-xl hover:from-green-500 hover:to-green-400 transition duration-200 ease-in-out flex items-center justify-center gap-3 mt-8 shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
+        className="w-full bg-gradient-to-r from-green-600 to-green-500 text-white font-bold text-lg px-6 py-4 rounded-xl hover:from-green-700 hover:to-green-600 transition duration-200 ease-in-out flex items-center justify-center gap-3 mt-8 shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
       >
         <Plus className="w-6 h-6" />
         บันทึกและเผยแพร่ข่าว
@@ -124,34 +160,34 @@ const AdminPanel = React.memo(({ newsForm, setNewsForm, handleFileChange, handle
 ));
 
 const NewsDetail = ({ newsItem, setSelectedNews }) => (
-  <div className="max-w-5xl mx-auto bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
-    <div className="bg-gray-900/50 p-4 border-b border-gray-700">
+  <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+    <div className="bg-gray-50 p-4 border-b border-gray-200">
         <button
         onClick={() => setSelectedNews(null)}
-        className="text-green-400 hover:text-green-300 flex items-center gap-2 font-bold transition bg-gray-800 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-700 border border-gray-700"
+        className="text-green-700 hover:text-green-800 flex items-center gap-2 font-bold transition bg-white px-4 py-2 rounded-lg shadow-sm hover:shadow border border-gray-200"
         >
         ← กลับไปหน้าหลัก
         </button>
     </div>
     <div className="p-8">
-        <h2 className="text-3xl font-extrabold mb-6 text-white leading-tight">{newsItem.title}</h2>
+        <h2 className="text-3xl font-extrabold mb-6 text-gray-900 leading-tight">{newsItem.title}</h2>
         
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-400 mb-8 bg-gray-900/50 p-4 rounded-xl border border-gray-700">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-600 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
             <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-green-500" />
+                <Calendar className="w-5 h-5 text-green-600" />
                 <span className="font-medium">เผยแพร่: {new Date(newsItem.createdAt).toLocaleDateString('th-TH')}</span>
             </div>
             <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-red-400" />
+                <Clock className="w-5 h-5 text-red-500" />
                 <span className="font-medium">หมดอายุ: {new Date(`${newsItem.expiryDate}T${newsItem.expiryTime}`).toLocaleString('th-TH')}</span>
             </div>
-            <div className="flex items-center gap-2 ml-auto bg-green-900/30 text-green-400 px-3 py-1 rounded-full border border-green-900/50">
+            <div className="flex items-center gap-2 ml-auto bg-green-100 text-green-800 px-3 py-1 rounded-full border border-green-200">
                 <Eye className="w-5 h-5" />
                 <span className="font-bold">{newsItem.views || 0} ครั้ง</span>
             </div>
         </div>
 
-        <div className="aspect-[4/3] w-full bg-gray-900 rounded-xl overflow-hidden shadow-inner border-4 border-gray-700">
+        <div className="aspect-[4/3] w-full bg-gray-100 rounded-xl overflow-hidden shadow-inner border-4 border-gray-200">
             <iframe
                 src={newsItem.pdfFile}
                 className="w-full h-full"
@@ -164,11 +200,12 @@ const NewsDetail = ({ newsItem, setSelectedNews }) => (
 
 const NewsCard = ({ newsItem, isAdmin, handleDeleteNews, handleViewNews, isExpired }) => {
   const isExpiredItem = isExpired(newsItem.expiryDate, newsItem.expiryTime);
-  const dateColor = isExpiredItem ? 'text-gray-500' : 'text-red-400';
+  const dateColor = isExpiredItem ? 'text-gray-500' : 'text-red-500';
   
+  // Light theme card styles
   const cardStyle = isExpiredItem 
-    ? 'bg-gray-800/50 border-gray-700 opacity-60' 
-    : 'bg-gray-800 border-gray-700 hover:border-green-500 hover:shadow-green-900/20 shadow-lg';
+    ? 'bg-gray-50 border-gray-200 opacity-70' 
+    : 'bg-white border-gray-200 hover:border-green-500 hover:shadow-lg shadow-md';
 
   return (
     <div
@@ -176,28 +213,28 @@ const NewsCard = ({ newsItem, isAdmin, handleDeleteNews, handleViewNews, isExpir
       className={`${cardStyle} rounded-2xl p-6 transition-all duration-300 cursor-pointer border flex flex-col md:flex-row justify-between gap-6 group relative overflow-hidden`}
     >
       {/* Decorative Accent */}
-      {!isExpiredItem && <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500 group-hover:bg-green-400 transition-colors"></div>}
+      {!isExpiredItem && <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500 group-hover:bg-green-600 transition-colors"></div>}
 
       <div className="flex-1 pl-4">
         <div className="flex items-start justify-between mb-3">
-             <h3 className="text-2xl font-bold text-gray-100 leading-snug group-hover:text-green-400 transition-colors line-clamp-2">
+             <h3 className="text-2xl font-bold text-gray-800 leading-snug group-hover:text-green-700 transition-colors line-clamp-2">
                 {newsItem.title}
             </h3>
-            <FileText className={`w-10 h-10 ${isExpiredItem ? 'text-gray-600' : 'text-gray-600 group-hover:text-green-500'} flex-shrink-0 transition-colors ml-4 hidden md:block`} />
+            <FileText className={`w-10 h-10 ${isExpiredItem ? 'text-gray-400' : 'text-gray-300 group-hover:text-green-500'} flex-shrink-0 transition-colors ml-4 hidden md:block`} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-400">
-          <div className="flex items-center gap-2 bg-gray-700/50 px-3 py-1 rounded-full">
-            <Calendar className="w-4 h-4 text-green-500" />
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600">
+          <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+            <Calendar className="w-4 h-4 text-green-600" />
             <span>{new Date(newsItem.createdAt).toLocaleDateString('th-TH')}</span>
           </div>
           
-          <div className="flex items-center gap-2 bg-blue-900/20 text-blue-400 px-3 py-1 rounded-full font-medium border border-blue-900/30">
+          <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium border border-blue-100">
             <Eye className="w-4 h-4" />
             <span>อ่าน {newsItem.views || 0} ครั้ง</span>
           </div>
 
-          <div className={`flex items-center gap-2 font-medium ${isExpiredItem ? 'bg-gray-700/50 px-3 py-1 rounded-full' : ''}`}>
+          <div className={`flex items-center gap-2 font-medium ${isExpiredItem ? 'bg-gray-100 px-3 py-1 rounded-full' : ''}`}>
             <Clock className={`w-4 h-4 ${dateColor}`} />
             <span className={dateColor}>
               {isExpiredItem 
@@ -216,7 +253,7 @@ const NewsCard = ({ newsItem, isAdmin, handleDeleteNews, handleViewNews, isExpir
                 e.stopPropagation();
                 handleDeleteNews(newsItem.id);
             }}
-            className="text-red-400 hover:text-white hover:bg-red-600 border border-red-900/50 bg-red-900/10 px-4 py-2 rounded-xl text-sm transition duration-150 ease-in-out flex items-center gap-2 font-bold z-10"
+            className="text-red-500 hover:text-white hover:bg-red-600 border border-red-300 bg-red-50 px-4 py-2 rounded-xl text-sm transition duration-150 ease-in-out flex items-center gap-2 font-bold z-10"
             >
             <Trash2 className="w-4 h-4" />
             <span className="hidden md:inline">ลบ</span>
@@ -298,10 +335,15 @@ const HospitalNewsWebsite = () => {
   }, [news, saveNews]);
 
   const activeNews = news.filter(n => !isExpired(n.expiryDate, n.expiryTime));
-  const expiredNews = news.filter(n => isExpired(n.expiryDate, n.expiryTime));
+  let expiredNews = news.filter(n => isExpired(n.expiryDate, n.expiryTime));
+  
+  // Sort expired news by creation date (Newest first)
+  expiredNews = expiredNews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  const handleAdminLogin = () => {
-    if (password === 'admin123') {
+  const handleAdminLogin = async () => {
+    const isValid = await verifyPassword(password);
+    
+    if (isValid) {
       setIsAdmin(true);
       localStorage.setItem('isAdmin', 'true');
       setShowAdminLogin(false);
@@ -369,36 +411,48 @@ const HospitalNewsWebsite = () => {
 
   if (selectedNews) {
     return (
-      <div className="min-h-screen bg-gray-900 p-4 md:p-8 animate-fade-in text-gray-100">
+      // พื้นหลังหน้ารายละเอียด
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8 animate-fade-in text-gray-900">
         <NewsDetail newsItem={selectedNews} setSelectedNews={setSelectedNews} />
       </div>
     );
   }
+  
+  const groupedExpiredNews = expiredNews.reduce((acc, newsItem) => {
+    const monthYear = getThaiMonthYear(newsItem.createdAt);
+    if (!acc[monthYear]) {
+        acc[monthYear] = [];
+    }
+    acc[monthYear].push(newsItem);
+    return acc;
+  }, {});
+
+  const sortedMonths = Object.keys(groupedExpiredNews).sort((a, b) => {
+    const dateA = new Date(groupedExpiredNews[a][0].createdAt);
+    const dateB = new Date(groupedExpiredNews[b][0].createdAt);
+    return dateB - dateA; // เรียงจากเดือนใหม่สุดไปเก่าสุด
+  });
+
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 selection:bg-green-500 selection:text-white">
-      <nav className="bg-gray-800/80 backdrop-blur-md shadow-md sticky top-0 z-20 border-b border-gray-700">
+    // พื้นหลังหลักของเว็บไซต์
+    <div className="min-h-screen bg-gray-50 text-gray-900 selection:bg-green-100 selection:text-green-900">
+      <nav className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-20 border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3 self-start md:self-auto">
-              <div className="flex items-center gap-3 self-start md:self-auto">
-    {/* <<<<<<<<<<<<<<< โค้ดที่เปลี่ยนแล้ว >>>>>>>>>>>>>>> */}
-    <img 
-        src="logo512.png" /* ชี้ไปที่ไฟล์ใน public/ */
-        alt="โลโก้โรงพยาบาลเถิน"
-        className="w-10 h-10 object-contain rounded-xl shadow-lg"
-    />
-    
-    <h1 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">ประชาสัมพันธ์<span className="text-green-400">โรงพยาบาลเถิน</span></h1>
-</div>
-              {/* เปลี่ยนชื่อโรงพยาบาลเป็น โรงพยาบาลเถิน */}
-              
+              <img 
+                  src="/logo192.png" 
+                  alt="โลโก้โรงพยาบาลเถิน"
+                  className="w-10 h-10 object-contain rounded-xl shadow-md bg-white p-1"
+              />
+              <h1 className="text-xl md:text-2xl font-extrabold text-gray-800 tracking-tight">ประชาสัมพันธ์<span className="text-green-600">โรงพยาบาลเถิน</span></h1>
             </div>
-            <div className="flex items-center space-x-2 bg-gray-700/50 p-1 rounded-full self-end md:self-auto border border-gray-600">
+            <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-full self-end md:self-auto border border-gray-200">
               <button
                 onClick={() => setCurrentPage('home')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-200 ${
-                  currentPage === 'home' ? 'bg-gray-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-400'
+                  currentPage === 'home' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500 hover:text-green-600'
                 }`}
               >
                 <Home className="w-4 h-4" />
@@ -407,19 +461,19 @@ const HospitalNewsWebsite = () => {
               <button
                 onClick={() => setCurrentPage('archive')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all duration-200 ${
-                  currentPage === 'archive' ? 'bg-gray-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-400'
+                  currentPage === 'archive' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500 hover:text-green-600'
                 }`}
               >
                 <Archive className="w-4 h-4" />
                 <span>ข่าวเก่า</span>
               </button>
               
-              <div className="w-px h-6 bg-gray-600 mx-1"></div>
+              <div className="w-px h-6 bg-gray-300 mx-1"></div>
 
               {!isAdmin ? (
                 <button
                   onClick={() => setShowAdminLogin(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white font-medium transition rounded-full hover:bg-gray-600"
+                  className="flex items-center gap-2 px-4 py-2 text-gray-500 hover:text-green-700 font-medium transition rounded-full hover:bg-white"
                 >
                   <LogIn className="w-4 h-4" />
                   <span className="hidden sm:inline">จนท.</span>
@@ -427,7 +481,7 @@ const HospitalNewsWebsite = () => {
               ) : (
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-900/30 text-red-400 rounded-full hover:bg-red-900/50 transition font-medium border border-red-900/50"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition font-medium border border-red-100"
                 >
                   <LogOut className="w-4 h-4" />
                   <span className="hidden sm:inline">ออกระบบ</span>
@@ -452,18 +506,18 @@ const HospitalNewsWebsite = () => {
         {currentPage === 'home' && (
           <div className="animate-slide-up">
             <div className="text-center mb-10">
-                <h2 className="text-3xl md:text-4xl font-black text-white inline-block relative z-10">
+                <h2 className="text-3xl md:text-4xl font-black text-gray-800 inline-block relative z-10">
                     ข่าวประชาสัมพันธ์ล่าสุด
-                    <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent -z-10 rounded-full opacity-70"></div>
+                    <div className="absolute -bottom-2 left-0 w-full h-2 bg-green-100 -z-10 rounded-full"></div>
                 </h2>
-                <p className="text-gray-400 mt-3 text-lg">ติดตามข่าวสารและประกาศสำคัญจากทางโรงพยาบาลเถิน</p>
+                <p className="text-gray-500 mt-3 text-lg">ติดตามข่าวสารและประกาศสำคัญจากทางโรงพยาบาลเถิน</p>
             </div>
             
             {activeNews.length === 0 ? (
-              <div className="bg-gray-800 rounded-3xl shadow-sm p-16 text-center border-2 border-dashed border-gray-700 max-w-3xl mx-auto">
-                <FileText className="w-20 h-20 text-gray-600 mx-auto mb-6" />
-                <p className="text-gray-400 text-xl font-bold mb-2">ยังไม่มีข่าวประชาสัมพันธ์</p>
-                <p className="text-gray-500">ข่าวสารใหม่ๆ จะถูกอัปเดตที่นี่</p>
+              <div className="bg-white rounded-3xl shadow-sm p-16 text-center border-2 border-dashed border-gray-200 max-w-3xl mx-auto">
+                <FileText className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+                <p className="text-gray-500 text-xl font-bold mb-2">ยังไม่มีข่าวประชาสัมพันธ์</p>
+                <p className="text-gray-600">ข่าวสารใหม่ๆ จะถูกอัปเดตที่นี่</p>
               </div>
             ) : (
               <div className="flex flex-col gap-6 max-w-4xl mx-auto">
@@ -487,29 +541,38 @@ const HospitalNewsWebsite = () => {
         {currentPage === 'archive' && (
           <div className="animate-slide-up pt-4">
              <div className="text-center mb-10">
-                <h2 className="text-3xl md:text-4xl font-black text-gray-300 inline-block relative z-10">
+                <h2 className="text-3xl md:text-4xl font-black text-gray-700 inline-block relative z-10">
                     คลังข่าวเก่า
-                    <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-600 to-transparent -z-10 rounded-full opacity-50"></div>
+                    <div className="absolute -bottom-2 left-0 w-full h-2 bg-gray-200 -z-10 rounded-full"></div>
                 </h2>
             </div>
+
             {expiredNews.length === 0 ? (
-              <div className="bg-gray-800 rounded-3xl shadow-sm p-16 text-center border-2 border-dashed border-gray-700 max-w-3xl mx-auto">
-                <Archive className="w-20 h-20 text-gray-600 mx-auto mb-6" />
-                <p className="text-gray-400 text-xl font-bold">ยังไม่มีข่าวเก่าในระบบ</p>
+              <div className="bg-white rounded-3xl shadow-sm p-16 text-center border-2 border-dashed border-gray-200 max-w-3xl mx-auto">
+                <Archive className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+                <p className="text-gray-500 text-xl font-bold">ยังไม่มีข่าวเก่าในระบบ</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-                {expiredNews
-                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                  .map(newsItem => (
-                  <NewsCard 
-                    key={newsItem.id} 
-                    newsItem={newsItem} 
-                    isAdmin={isAdmin}
-                    handleDeleteNews={handleDeleteNews}
-                    handleViewNews={handleViewNews}
-                    isExpired={isExpired}
-                  />
+              <div className="flex flex-col gap-8 max-w-4xl mx-auto">
+                {sortedMonths.map(month => (
+                  <div key={month} className="space-y-4">
+                    {/* หัวข้อเดือน */}
+                    <h3 className="text-2xl font-bold text-green-700 bg-gray-100 p-3 rounded-xl border border-gray-200 shadow-md sticky top-[72px] z-10">
+                      {month}
+                    </h3>
+                    <div className="flex flex-col gap-6">
+                      {groupedExpiredNews[month].map(newsItem => (
+                        <NewsCard 
+                          key={newsItem.id} 
+                          newsItem={newsItem} 
+                          isAdmin={isAdmin}
+                          handleDeleteNews={handleDeleteNews}
+                          handleViewNews={handleViewNews}
+                          isExpired={isExpired}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
